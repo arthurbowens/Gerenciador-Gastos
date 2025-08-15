@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFinance } from '../contexts/FinanceContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { MonthlyBarChart, BalanceLineChart, ExpensesPieChart } from '../components/Charts';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +26,114 @@ export default function ReportsScreen() {
   const currentYear = currentDate.getFullYear();
 
   const monthlyStats = getMonthlyStats(currentYear, currentMonth);
+
+  const getMonthlyChartData = () => {
+    try {
+      const last6Months = [];
+      const currentDate = new Date();
+      
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        const monthStats = getMonthlyStats(date.getFullYear(), date.getMonth());
+        
+        last6Months.push({
+          month: date.toLocaleDateString('pt-BR', { month: 'short' }),
+          income: Number(monthStats.income) || 0,
+          expenses: Number(monthStats.expenses) || 0,
+          balance: Number(monthStats.balance) || 0,
+        });
+      }
+      
+      // Validar se temos dados válidos
+      if (last6Months.length === 0) {
+        return null;
+      }
+      
+      const incomeData = last6Months.map(m => m.income);
+      const expensesData = last6Months.map(m => m.expenses);
+      
+      // Verificar se pelo menos um dataset tem dados válidos
+      const hasValidData = incomeData.some(v => v > 0) || expensesData.some(v => v > 0);
+      
+      if (!hasValidData) {
+        return null;
+      }
+      
+      return {
+        labels: last6Months.map(m => m.month),
+        datasets: [
+          {
+            data: incomeData,
+            color: (opacity = 1) => `rgba(34, 197, 94, ${opacity})`,
+            strokeWidth: 2,
+          },
+          {
+            data: expensesData,
+            color: (opacity = 1) => `rgba(239, 68, 68, ${opacity})`,
+            strokeWidth: 2,
+          }
+        ],
+        legend: [t('home.income'), t('home.expenses')]
+      };
+    } catch (error) {
+      console.error('Erro em getMonthlyChartData:', error);
+      return null;
+    }
+  };
+
+  const getBalanceChartData = () => {
+    try {
+      const last6Months = [];
+      const currentDate = new Date();
+      const labels = [];
+      
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+        const monthStats = getMonthlyStats(date.getFullYear(), date.getMonth());
+        last6Months.push(Number(monthStats.balance) || 0);
+        labels.push(date.toLocaleDateString('pt-BR', { month: 'short' }));
+      }
+      
+      if (last6Months.length === 0) {
+        return null;
+      }
+      
+      return {
+        labels: labels,
+        datasets: [{
+          data: last6Months,
+          color: (opacity = 1) => `rgba(168, 85, 247, ${opacity})`,
+          strokeWidth: 3,
+        }],
+        legend: [t('home.balance')]
+      };
+    } catch (error) {
+      console.error('Erro em getBalanceChartData:', error);
+      return null;
+    }
+  };
+
+  const getCategoryPieData = () => {
+    try {
+      const categoryStats = getCategoryStats();
+      
+      if (!Array.isArray(categoryStats) || categoryStats.length === 0) {
+        return [];
+      }
+      
+      return categoryStats
+        .filter(item => item && item.type === 'expense' && item.total > 0)
+        .map(item => ({ 
+          name: String(item.name || ''), 
+          amount: Number(item.total) || 0 
+        }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 6);
+    } catch (error) {
+      console.error('Erro em getCategoryPieData:', error);
+      return [];
+    }
+  };
 
   const getCategoryStats = () => {
     const categoryStats = {};
@@ -250,6 +359,34 @@ export default function ReportsScreen() {
 
       {/* Resumo */}
       {renderSummaryCards()}
+
+      {/* Gráficos */}
+      {getMonthlyChartData() && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.cardTitle}>{t('reports.monthlyComparison')}</Title>
+            <MonthlyBarChart data={getMonthlyChartData()} />
+          </Card.Content>
+        </Card>
+      )}
+
+      {getBalanceChartData() && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.cardTitle}>{t('reports.balanceEvolution')}</Title>
+            <BalanceLineChart data={getBalanceChartData()} />
+          </Card.Content>
+        </Card>
+      )}
+
+      {getCategoryPieData().length > 0 && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.cardTitle}>{t('reports.expensesByCategory')}</Title>
+            <ExpensesPieChart data={getCategoryPieData()} />
+          </Card.Content>
+        </Card>
+      )}
 
       {/* Análise por categoria */}
       {renderCategoryBreakdown()}

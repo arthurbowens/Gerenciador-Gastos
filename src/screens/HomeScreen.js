@@ -17,6 +17,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import HeaderCard from '../components/HeaderCard';
 import EmptyState from '../components/EmptyState';
+import { ExpensesPieChart, MiniPieChart } from '../components/Charts';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +33,33 @@ export default function HomeScreen({ navigation }) {
   const currentYear = currentDate.getFullYear();
   
   const monthlyStats = getMonthlyStats(currentYear, currentMonth);
+
+  const getExpensesChartData = () => {
+    const expensesByCategory = {};
+    
+    transactions
+      .filter(t => {
+        const transactionDate = new Date(t.date);
+        return (
+          t.type === 'expense' &&
+          transactionDate.getMonth() === currentMonth &&
+          transactionDate.getFullYear() === currentYear
+        );
+      })
+      .forEach(transaction => {
+        const categoryName = transaction.categoryName || t('common.other');
+        if (expensesByCategory[categoryName]) {
+          expensesByCategory[categoryName] += parseFloat(transaction.amount);
+        } else {
+          expensesByCategory[categoryName] = parseFloat(transaction.amount);
+        }
+      });
+
+    return Object.entries(expensesByCategory)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5); // Top 5 categorias
+  };
 
   const getRecentTransactions = () => {
     return transactions
@@ -146,7 +174,15 @@ export default function HomeScreen({ navigation }) {
         </Card.Content>
       </Card>
 
-
+      {/* Gráfico de despesas por categoria */}
+      {getExpensesChartData().length > 0 && (
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.cardTitle}>{t('home.expensesByCategory')}</Title>
+            <ExpensesPieChart data={getExpensesChartData()} />
+          </Card.Content>
+        </Card>
+      )}
 
       {/* Transações recentes */}
       <Card style={styles.card}>
