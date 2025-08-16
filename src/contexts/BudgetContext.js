@@ -16,6 +16,7 @@ export const useBudget = () => {
 export const BudgetProvider = ({ children }) => {
   const [budgets, setBudgets] = useState([]);
   const [monthlyGoals, setMonthlyGoals] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
   const { t } = useLanguage();
   const { transactions } = useFinance();
 
@@ -33,6 +34,7 @@ export const BudgetProvider = ({ children }) => {
 
   const loadBudgetData = async () => {
     try {
+      setIsLoading(true);
       const savedBudgets = await AsyncStorage.getItem('budgets');
       const savedGoals = await AsyncStorage.getItem('monthlyGoals');
       
@@ -45,6 +47,8 @@ export const BudgetProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Erro ao carregar dados de orçamento:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -59,7 +63,7 @@ export const BudgetProvider = ({ children }) => {
 
   const setBudgetForCategory = async (categoryId, categoryName, limit, type = 'expense') => {
     const currentDate = new Date();
-    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     const budgetId = `${categoryId}_${monthKey}`;
     
     // Verificar se já existe um orçamento para esta categoria no mês
@@ -77,8 +81,8 @@ export const BudgetProvider = ({ children }) => {
       id: budgetId,
       categoryId,
       categoryName,
-      limit,
-      spent: existingBudget ? existingBudget.spent : 0, // Preservar spent se estiver editando
+      limit: parseFloat(limit),
+      spent: existingBudget ? existingBudget.spent : 0,
       month: monthKey,
       type,
       createdAt: existingBudget ? existingBudget.createdAt : new Date().toISOString(),
@@ -96,7 +100,7 @@ export const BudgetProvider = ({ children }) => {
 
   const updateBudgetSpent = async (categoryId, amount, type) => {
     const currentDate = new Date();
-    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     const budgetId = `${categoryId}_${monthKey}`;
     
     const updatedBudgets = budgets.map(budget => {
@@ -115,7 +119,7 @@ export const BudgetProvider = ({ children }) => {
 
   const getBudgetForCategory = (categoryId, type = 'expense') => {
     const currentDate = new Date();
-    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     const budgetId = `${categoryId}_${monthKey}`;
     
     return budgets.find(b => b.id === budgetId && b.type === type);
@@ -123,7 +127,7 @@ export const BudgetProvider = ({ children }) => {
 
   const getAllCurrentBudgets = () => {
     const currentDate = new Date();
-    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
     return budgets.filter(b => b.month === monthKey);
   };
@@ -142,26 +146,76 @@ export const BudgetProvider = ({ children }) => {
   };
 
   const setMonthlyGoal = async (goalType, amount) => {
-    const currentDate = new Date();
-    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
-    
-    const updatedGoals = {
-      ...monthlyGoals,
-      [monthKey]: {
-        ...monthlyGoals[monthKey],
-        [goalType]: amount
+    try {
+      const currentDate = new Date();
+      const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Validar o tipo de meta
+      if (!['savings', 'maxExpenses'].includes(goalType)) {
+        console.error('Tipo de meta inválido:', goalType);
+        return false;
       }
-    };
-    
-    setMonthlyGoals(updatedGoals);
-    await saveBudgetData(budgets, updatedGoals);
+      
+      // Validar o valor
+      const validatedAmount = parseFloat(amount) || 0;
+      if (validatedAmount < 0) {
+        console.error('Valor da meta não pode ser negativo:', amount);
+        return false;
+      }
+      
+      const updatedGoals = {
+        ...monthlyGoals,
+        [monthKey]: {
+          ...monthlyGoals[monthKey],
+          [goalType]: validatedAmount
+        }
+      };
+      
+      console.log('🎯 Definindo meta mensal:', { 
+        monthKey, 
+        goalType, 
+        amount: validatedAmount, 
+        updatedGoals,
+        previousValue: monthlyGoals[monthKey]?.[goalType] || 0
+      });
+      
+      setMonthlyGoals(updatedGoals);
+      await saveBudgetData(budgets, updatedGoals);
+      
+      console.log('✅ Meta mensal salva com sucesso:', { goalType, amount: validatedAmount });
+      return true;
+    } catch (error) {
+      console.error('Erro ao definir meta mensal:', error);
+      return false;
+    }
   };
 
   const getMonthlyGoal = (goalType) => {
+    try {
+      const currentDate = new Date();
+      const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Validar o tipo de meta
+      if (!['savings', 'maxExpenses'].includes(goalType)) {
+        console.error('Tipo de meta inválido:', goalType);
+        return 0;
+      }
+      
+      const goal = monthlyGoals[monthKey]?.[goalType];
+      console.log('🎯 Obtendo meta mensal:', { monthKey, goalType, goal, allGoals: monthlyGoals[monthKey] });
+      
+      return goal || 0;
+    } catch (error) {
+      console.error('Erro ao obter meta mensal:', error);
+      return 0;
+    }
+  };
+
+  const getCurrentMonthGoals = () => {
     const currentDate = new Date();
-    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     
-    return monthlyGoals[monthKey]?.[goalType] || 0;
+    return monthlyGoals[monthKey] || {};
   };
 
   const deleteBudget = async (budgetId) => {
@@ -237,7 +291,7 @@ export const BudgetProvider = ({ children }) => {
     });
 
     const currentDate = new Date();
-    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     const newBudgetId = `${categoryId}_${monthKey}`;
     
     console.log('🆔 IDs:', { oldBudgetId, newBudgetId, willDelete: oldBudgetId !== newBudgetId });
@@ -256,11 +310,11 @@ export const BudgetProvider = ({ children }) => {
       id: newBudgetId,
       categoryId,
       categoryName,
-      limit,
-      spent: spentToPreserve, // Preservar gastos do orçamento antigo
+      limit: parseFloat(limit),
+      spent: spentToPreserve,
       month: monthKey,
       type,
-      createdAt: createdAtToPreserve, // Preservar data de criação
+      createdAt: createdAtToPreserve,
       updatedAt: new Date().toISOString(),
     };
     
@@ -276,6 +330,7 @@ export const BudgetProvider = ({ children }) => {
   const value = {
     budgets,
     monthlyGoals,
+    isLoading,
     setBudgetForCategory,
     updateBudget,
     updateBudgetSpent,
@@ -284,6 +339,7 @@ export const BudgetProvider = ({ children }) => {
     getBudgetStatus,
     setMonthlyGoal,
     getMonthlyGoal,
+    getCurrentMonthGoals,
     deleteBudget,
   };
 

@@ -36,7 +36,9 @@ export default function BudgetScreen() {
     getBudgetStatus, 
     deleteBudget,
     setMonthlyGoal,
-    getMonthlyGoal 
+    getMonthlyGoal,
+    getCurrentMonthGoals,
+    isLoading: budgetLoading
   } = useBudget();
   const { categories, getMonthlyStats } = useFinance();
   const { formatCurrency } = useCurrency();
@@ -47,11 +49,25 @@ export default function BudgetScreen() {
   const [budgetAmount, setBudgetAmount] = useState('');
   const [editingBudget, setEditingBudget] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [savingsGoal, setSavingsGoal] = useState(getMonthlyGoal('savings').toString());
-  const [expenseGoal, setExpenseGoal] = useState(getMonthlyGoal('maxExpenses').toString());
+  const [savingsGoal, setSavingsGoal] = useState('');
+  const [expenseGoal, setExpenseGoal] = useState('');
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const monthlyStats = getMonthlyStats();
+  const monthlyStats = getMonthlyStats(new Date().getFullYear(), new Date().getMonth());
   const currentBudgets = getAllCurrentBudgets();
+  const currentGoals = getCurrentMonthGoals();
+
+  // Carregar metas atuais apenas uma vez quando o componente montar
+  useEffect(() => {
+    if (!budgetLoading && !isInitialized) {
+      const currentSavings = getMonthlyGoal('savings');
+      const currentExpense = getMonthlyGoal('maxExpenses');
+      
+      setSavingsGoal(currentSavings > 0 ? currentSavings.toString() : '');
+      setExpenseGoal(currentExpense > 0 ? currentExpense.toString() : '');
+      setIsInitialized(true);
+    }
+  }, [budgetLoading, isInitialized]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -87,7 +103,6 @@ export default function BudgetScreen() {
 
     try {
       if (isEditing && editingBudget) {
-        // Usar updateBudget para lidar com mudança de categoria
         await updateBudget(
           editingBudget.id,
           selectedCategory.id,
@@ -96,7 +111,6 @@ export default function BudgetScreen() {
           selectedCategory.type
         );
       } else {
-        // Criar novo orçamento
         await setBudgetForCategory(
           selectedCategory.id,
           selectedCategory.name,
@@ -143,16 +157,46 @@ export default function BudgetScreen() {
 
   const handleSetGoals = async () => {
     try {
-      if (savingsGoal) {
-        await setMonthlyGoal('savings', parseFloat(savingsGoal));
-      }
-      if (expenseGoal) {
-        await setMonthlyGoal('maxExpenses', parseFloat(expenseGoal));
+      let success = true;
+      
+      // Validar e processar meta de economia
+      if (savingsGoal.trim() !== '') {
+        const savingsValue = parseFloat(savingsGoal);
+        if (savingsValue > 0) {
+          success = await setMonthlyGoal('savings', savingsValue);
+        } else {
+          Alert.alert(t('common.error'), 'Meta de economia deve ser maior que zero');
+          return;
+        }
+      } else {
+        // Se o campo estiver vazio, definir como 0 (sem meta)
+        success = await setMonthlyGoal('savings', 0);
       }
       
-      setGoalModalVisible(false);
-      Alert.alert(t('common.success'), t('budget.goalsSet'));
+      // Validar e processar limite de gastos
+      if (expenseGoal.trim() !== '') {
+        const expenseValue = parseFloat(expenseGoal);
+        if (expenseValue > 0) {
+          success = await setMonthlyGoal('maxExpenses', expenseValue);
+        } else {
+          Alert.alert(t('common.error'), 'Limite de gastos deve ser maior que zero');
+          return;
+        }
+      } else {
+        // Se o campo estiver vazio, definir como 0 (sem meta)
+        success = await setMonthlyGoal('maxExpenses', 0);
+      }
+      
+      if (success) {
+        setGoalModalVisible(false);
+        Alert.alert(t('common.success'), t('budget.goalsSet'));
+        // Recarregar as metas após salvar
+        setIsInitialized(false);
+      } else {
+        Alert.alert(t('common.error'), t('budget.errorSettingGoals'));
+      }
     } catch (error) {
+      console.error('Erro ao definir metas:', error);
       Alert.alert(t('common.error'), t('budget.errorSettingGoals'));
     }
   };
@@ -223,6 +267,14 @@ export default function BudgetScreen() {
     const currentSavingsGoal = getMonthlyGoal('savings');
     const currentExpenseGoal = getMonthlyGoal('maxExpenses');
     
+    // Debug: verificar valores das metas
+    console.log('🎯 Debug - Metas carregadas:', {
+      savingsGoal: currentSavingsGoal,
+      expenseGoal: currentExpenseGoal,
+      savingsGoalType: typeof currentSavingsGoal,
+      expenseGoalType: typeof currentExpenseGoal
+    });
+    
     const savingsProgress = currentSavingsGoal > 0 ? (monthlyStats.balance / currentSavingsGoal) * 100 : 0;
     const expenseProgress = currentExpenseGoal > 0 ? (monthlyStats.expenses / currentExpenseGoal) * 100 : 0;
 
@@ -239,6 +291,7 @@ export default function BudgetScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Meta de Economia - sempre mostrar se definida */}
           {currentSavingsGoal > 0 && (
             <View style={styles.goalItem}>
               <Text style={styles.goalLabel}>{t('budget.savingsGoal')}</Text>
@@ -254,24 +307,28 @@ export default function BudgetScreen() {
             </View>
           )}
 
-          {currentExpenseGoal > 0 && (
-            <>
-              <Divider style={styles.goalDivider} />
-              <View style={styles.goalItem}>
-                <Text style={styles.goalLabel}>{t('budget.expenseLimit')}</Text>
-                <Text style={styles.goalValue}>
-                  {formatCurrency(monthlyStats.expenses)} / {formatCurrency(currentExpenseGoal)}
-                </Text>
-                <ProgressBar 
-                  progress={Math.min(expenseProgress / 100, 1)}
-                  color={expenseProgress >= 100 ? '#EF4444' : '#10B981'}
-                  style={styles.goalProgress}
-                />
-                <Text style={styles.goalPercentage}>{Math.round(expenseProgress)}%</Text>
-              </View>
-            </>
+          {/* Separador entre metas se ambas existirem */}
+          {currentSavingsGoal > 0 && currentExpenseGoal > 0 && (
+            <Divider style={styles.goalDivider} />
           )}
 
+          {/* Limite de Gastos - sempre mostrar se definido */}
+          {currentExpenseGoal > 0 && (
+            <View style={styles.goalItem}>
+              <Text style={styles.goalLabel}>{t('budget.expenseLimit')}</Text>
+              <Text style={styles.goalValue}>
+                {formatCurrency(monthlyStats.expenses)} / {formatCurrency(currentExpenseGoal)}
+              </Text>
+              <ProgressBar 
+                progress={Math.min(expenseProgress / 100, 1)}
+                color={expenseProgress >= 100 ? '#EF4444' : '#10B981'}
+                style={styles.goalProgress}
+              />
+              <Text style={styles.goalPercentage}>{Math.round(expenseProgress)}%</Text>
+            </View>
+          )}
+
+          {/* Mensagem quando não há metas definidas */}
           {currentSavingsGoal === 0 && currentExpenseGoal === 0 && (
             <View style={styles.noGoalsContainer}>
               <Text style={styles.noGoalsText}>{t('budget.noGoalsSet')}</Text>
@@ -288,6 +345,15 @@ export default function BudgetScreen() {
       </Card>
     );
   };
+
+  // Mostrar loading se necessário
+  if (budgetLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text>Carregando orçamentos...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -401,10 +467,17 @@ export default function BudgetScreen() {
               
               <View style={styles.modalSection}>
                 <Text style={styles.modalLabel}>{t('budget.savingsGoal')}</Text>
+                <Text style={styles.modalSubtext}>
+                  Deixe em branco para não definir meta de economia
+                </Text>
                 <TextInput
                   mode="outlined"
                   value={savingsGoal}
-                  onChangeText={setSavingsGoal}
+                  onChangeText={(text) => {
+                    // Permitir apenas números e vírgula/ponto
+                    const cleanedText = text.replace(/[^0-9,.]/g, '');
+                    setSavingsGoal(cleanedText);
+                  }}
                   placeholder="0,00"
                   keyboardType="numeric"
                   style={styles.modalInput}
@@ -414,10 +487,17 @@ export default function BudgetScreen() {
 
               <View style={styles.modalSection}>
                 <Text style={styles.modalLabel}>{t('budget.expenseLimit')}</Text>
+                <Text style={styles.modalSubtext}>
+                  Deixe em branco para não definir limite de gastos
+                </Text>
                 <TextInput
                   mode="outlined"
                   value={expenseGoal}
-                  onChangeText={setExpenseGoal}
+                  onChangeText={(text) => {
+                    // Permitir apenas números e vírgula/ponto
+                    const cleanedText = text.replace(/[^0-9,.]/g, '');
+                    setExpenseGoal(cleanedText);
+                  }}
                   placeholder="0,00"
                   keyboardType="numeric"
                   style={styles.modalInput}
@@ -437,6 +517,7 @@ export default function BudgetScreen() {
                   mode="contained"
                   onPress={handleSetGoals}
                   style={styles.confirmButton}
+                  disabled={!savingsGoal.trim() && !expenseGoal.trim()}
                 >
                   {t('common.save')}
                 </Button>
@@ -696,6 +777,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     marginBottom: 8,
+  },
+  modalSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
   categoryScroll: {
     maxHeight: 50,
