@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFinance } from './FinanceContext';
 import { useLanguage } from './LanguageContext';
+import { useNotifications } from './NotificationContext';
 
 const BudgetContext = createContext();
 
@@ -17,8 +18,11 @@ export const BudgetProvider = ({ children }) => {
   const [budgets, setBudgets] = useState([]);
   const [monthlyGoals, setMonthlyGoals] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [budgetHistory, setBudgetHistory] = useState([]);
+  const [goalAchievements, setGoalAchievements] = useState([]);
   const { t } = useLanguage();
   const { transactions } = useFinance();
+  const { sendBudgetAlert, sendGoalAchievement } = useNotifications();
 
   // Carregar dados salvos
   useEffect(() => {
@@ -37,13 +41,24 @@ export const BudgetProvider = ({ children }) => {
       setIsLoading(true);
       const savedBudgets = await AsyncStorage.getItem('budgets');
       const savedGoals = await AsyncStorage.getItem('monthlyGoals');
+      const savedHistory = await AsyncStorage.getItem('budgetHistory');
+      const savedAchievements = await AsyncStorage.getItem('goalAchievements');
       
       if (savedBudgets) {
         setBudgets(JSON.parse(savedBudgets));
       }
       
       if (savedGoals) {
-        setMonthlyGoals(JSON.parse(savedGoals));
+        const parsedGoals = JSON.parse(savedGoals);
+        setMonthlyGoals(parsedGoals);
+      }
+      
+      if (savedHistory) {
+        setBudgetHistory(JSON.parse(savedHistory));
+      }
+      
+      if (savedAchievements) {
+        setGoalAchievements(JSON.parse(savedAchievements));
       }
     } catch (error) {
       console.error('Erro ao carregar dados de orçamento:', error);
@@ -54,8 +69,14 @@ export const BudgetProvider = ({ children }) => {
 
   const saveBudgetData = async (newBudgets, newGoals = monthlyGoals) => {
     try {
+      // Preservar metas existentes se não foram fornecidas
+      const goalsToSave = newGoals === monthlyGoals ? monthlyGoals : newGoals;
+      
       await AsyncStorage.setItem('budgets', JSON.stringify(newBudgets));
-      await AsyncStorage.setItem('monthlyGoals', JSON.stringify(newGoals));
+      await AsyncStorage.setItem('monthlyGoals', JSON.stringify(goalsToSave));
+      await AsyncStorage.setItem('budgetHistory', JSON.stringify(budgetHistory));
+      await AsyncStorage.setItem('goalAchievements', JSON.stringify(goalAchievements));
+      
     } catch (error) {
       console.error('Erro ao salvar dados de orçamento:', error);
     }
@@ -68,14 +89,6 @@ export const BudgetProvider = ({ children }) => {
     
     // Verificar se já existe um orçamento para esta categoria no mês
     const existingBudget = budgets.find(b => b.id === budgetId);
-    
-    console.log('💰 setBudgetForCategory:', {
-      budgetId,
-      categoryName,
-      limit,
-      existingBudget: existingBudget ? 'SIM' : 'NÃO',
-      spentToPreserve: existingBudget ? existingBudget.spent : 0
-    });
     
     const budgetData = {
       id: budgetId,
@@ -92,10 +105,9 @@ export const BudgetProvider = ({ children }) => {
     const updatedBudgets = budgets.filter(b => b.id !== budgetId);
     updatedBudgets.push(budgetData);
     
-    console.log('📊 Total de orçamentos após operação:', updatedBudgets.length);
-    
     setBudgets(updatedBudgets);
-    await saveBudgetData(updatedBudgets);
+    // Não sobrescrever metas ao definir orçamento de categoria
+    await saveBudgetData(updatedBudgets, monthlyGoals);
   };
 
   const updateBudgetSpent = async (categoryId, amount, type) => {
@@ -114,7 +126,8 @@ export const BudgetProvider = ({ children }) => {
     });
     
     setBudgets(updatedBudgets);
-    await saveBudgetData(updatedBudgets);
+    // Não sobrescrever metas ao atualizar gastos
+    await saveBudgetData(updatedBudgets, monthlyGoals);
   };
 
   const getBudgetForCategory = (categoryId, type = 'expense') => {
@@ -150,39 +163,25 @@ export const BudgetProvider = ({ children }) => {
       const currentDate = new Date();
       const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
       
-      // Validar o tipo de meta
-      if (!['savings', 'maxExpenses'].includes(goalType)) {
-        console.error('Tipo de meta inválido:', goalType);
-        return false;
-      }
-      
-      // Validar o valor
-      const validatedAmount = parseFloat(amount) || 0;
-      if (validatedAmount < 0) {
-        console.error('Valor da meta não pode ser negativo:', amount);
-        return false;
-      }
+      // Preservar metas existentes do mês
+      const existingMonthGoals = monthlyGoals[monthKey] || {};
       
       const updatedGoals = {
         ...monthlyGoals,
         [monthKey]: {
-          ...monthlyGoals[monthKey],
-          [goalType]: validatedAmount
+          ...existingMonthGoals,  // Preservar todas as metas existentes
+          [goalType]: parseFloat(amount) || 0
         }
       };
-      
-      console.log('🎯 Definindo meta mensal:', { 
-        monthKey, 
-        goalType, 
-        amount: validatedAmount, 
-        updatedGoals,
-        previousValue: monthlyGoals[monthKey]?.[goalType] || 0
-      });
       
       setMonthlyGoals(updatedGoals);
       await saveBudgetData(budgets, updatedGoals);
       
-      console.log('✅ Meta mensal salva com sucesso:', { goalType, amount: validatedAmount });
+      // Verificar se a meta foi alcançada
+      if (amount > 0) {
+        checkGoalAchievement(goalType, amount, monthKey);
+      }
+      
       return true;
     } catch (error) {
       console.error('Erro ao definir meta mensal:', error);
@@ -190,25 +189,198 @@ export const BudgetProvider = ({ children }) => {
     }
   };
 
-  const getMonthlyGoal = (goalType) => {
+  // Verificar se uma meta foi alcançada
+  const checkGoalAchievement = async (goalType, targetAmount, monthKey) => {
+    try {
+      const currentStats = getCurrentMonthStats();
+      let isAchieved = false;
+      
+      if (goalType === 'savings' && currentStats.balance >= targetAmount) {
+        isAchieved = true;
+      } else if (goalType === 'maxExpenses' && currentStats.expenses <= targetAmount) {
+        isAchieved = true;
+      }
+      
+      if (isAchieved) {
+        const achievement = {
+          id: `${goalType}_${monthKey}_${Date.now()}`,
+          goalType,
+          targetAmount,
+          achievedAmount: goalType === 'savings' ? currentStats.balance : currentStats.expenses,
+          monthKey,
+          achievedAt: new Date().toISOString(),
+        };
+        
+        setGoalAchievements(prev => [...prev, achievement]);
+        await saveBudgetData(budgets, monthlyGoals);
+        
+        // Enviar notificação de meta alcançada
+        const goalTypeText = goalType === 'savings' ? 'economia' : 'limite de gastos';
+        await sendGoalAchievement(goalTypeText, targetAmount);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar meta:', error);
+    }
+  };
+
+  // Obter estatísticas do mês atual
+  const getCurrentMonthStats = () => {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
+    let income = 0;
+    let expenses = 0;
+    
+    transactions.forEach(transaction => {
+      const transactionDate = new Date(transaction.date);
+      if (transactionDate.getMonth() === currentMonth && 
+          transactionDate.getFullYear() === currentYear) {
+        
+        if (transaction.type === 'income') {
+          income += parseFloat(transaction.amount) || 0;
+        } else {
+          expenses += parseFloat(transaction.amount) || 0;
+        }
+      }
+    });
+    
+    return {
+      income,
+      expenses,
+      balance: income - expenses
+    };
+  };
+
+  // Copiar metas do mês anterior
+  const copyPreviousMonthGoals = async () => {
+    try {
+      const currentDate = new Date();
+      const previousMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1);
+      const previousMonthKey = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`;
+      const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      const previousGoals = monthlyGoals[previousMonthKey];
+      if (!previousGoals || (!previousGoals.savings && !previousGoals.maxExpenses)) {
+        return false; // Não há metas para copiar
+      }
+      
+      const updatedGoals = {
+        ...monthlyGoals,
+        [currentMonthKey]: {
+          ...monthlyGoals[currentMonthKey],
+          savings: previousGoals.savings || 0,
+          maxExpenses: previousGoals.maxExpenses || 0,
+          copiedFrom: previousMonthKey,
+          copiedAt: new Date().toISOString()
+        }
+      };
+      
+      setMonthlyGoals(updatedGoals);
+      await saveBudgetData(budgets, updatedGoals);
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao copiar metas:', error);
+      return false;
+    }
+  };
+
+  // Obter histórico de metas
+  const getGoalsHistory = () => {
+    const months = Object.keys(monthlyGoals).sort().reverse();
+    return months.map(monthKey => {
+      const monthDate = new Date(monthKey.split('-')[0], parseInt(monthKey.split('-')[1]) - 1);
+      const monthName = monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      
+      return {
+        month: monthKey,
+        monthName,
+        goals: monthlyGoals[monthKey],
+        hasGoals: !!(monthlyGoals[monthKey]?.savings || monthlyGoals[monthKey]?.maxExpenses)
+      };
+    });
+  };
+
+  // Obter estatísticas das metas
+  const getGoalsStats = () => {
+    const currentStats = getCurrentMonthStats();
+    const currentGoals = getCurrentMonthGoals();
+    
+    const daysRemaining = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() - new Date().getDate();
+    
+    const savingsProgress = currentGoals.savings > 0 ? (currentStats.balance / currentGoals.savings) * 100 : 0;
+    const expenseProgress = currentGoals.maxExpenses > 0 ? (currentStats.expenses / currentGoals.maxExpenses) * 100 : 0;
+    
+    return {
+      currentMonth: new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+      daysRemaining: Math.max(0, daysRemaining),
+      monthlyIncome: currentStats.income,
+      monthlyExpenses: currentStats.expenses,
+      monthlyBalance: currentStats.balance,
+      savingsGoal: currentGoals.savings || 0,
+      expenseGoal: currentGoals.maxExpenses || 0,
+      savingsProgress: Math.round(savingsProgress),
+      expenseProgress: Math.round(expenseProgress),
+      isSavingsGoalMet: savingsProgress >= 100,
+      isExpenseGoalExceeded: expenseProgress >= 100
+    };
+  };
+
+  // Limpar metas do mês atual
+  const clearCurrentMonthGoals = async () => {
     try {
       const currentDate = new Date();
       const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
       
-      // Validar o tipo de meta
-      if (!['savings', 'maxExpenses'].includes(goalType)) {
-        console.error('Tipo de meta inválido:', goalType);
-        return 0;
-      }
+      const updatedGoals = { ...monthlyGoals };
+      delete updatedGoals[monthKey];
       
-      const goal = monthlyGoals[monthKey]?.[goalType];
-      console.log('🎯 Obtendo meta mensal:', { monthKey, goalType, goal, allGoals: monthlyGoals[monthKey] });
+      setMonthlyGoals(updatedGoals);
+      await saveBudgetData(budgets, updatedGoals);
       
-      return goal || 0;
+      return true;
     } catch (error) {
-      console.error('Erro ao obter meta mensal:', error);
-      return 0;
+      console.error('Erro ao limpar metas do mês atual:', error);
+      return false;
     }
+  };
+
+  const clearAllData = async () => {
+    try {
+      // Limpar orçamentos
+      setBudgets([]);
+      
+      // Limpar metas mensais
+      setMonthlyGoals({});
+      
+      // Limpar histórico
+      setBudgetHistory([]);
+      
+      // Limpar conquistas
+      setGoalAchievements([]);
+      
+      // Limpar do AsyncStorage
+      await AsyncStorage.removeItem('budgets');
+      await AsyncStorage.removeItem('monthlyGoals');
+      await AsyncStorage.removeItem('budgetHistory');
+      await AsyncStorage.removeItem('goalAchievements');
+      
+      console.log('✅ Todos os dados de orçamento foram limpos');
+      return true;
+    } catch (error) {
+      console.error('Erro ao limpar dados de orçamento:', error);
+      return false;
+    }
+  };
+
+  const getMonthlyGoal = (goalType) => {
+    const currentDate = new Date();
+    const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    const goal = monthlyGoals[monthKey]?.[goalType];
+    
+    return goal || 0;
   };
 
   const getCurrentMonthGoals = () => {
@@ -221,11 +393,11 @@ export const BudgetProvider = ({ children }) => {
   const deleteBudget = async (budgetId) => {
     const updatedBudgets = budgets.filter(b => b.id !== budgetId);
     setBudgets(updatedBudgets);
-    await saveBudgetData(updatedBudgets);
+    // Não sobrescrever metas ao deletar orçamento
+    await saveBudgetData(updatedBudgets, monthlyGoals);
   };
 
   const recalculateBudgetSpending = async () => {
-    console.log('🔄 Recalculando gastos dos orçamentos...');
     
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
@@ -262,7 +434,26 @@ export const BudgetProvider = ({ children }) => {
           : categorySpending.expense;
           
         if (newSpent !== budget.spent) {
-          console.log(`💰 Atualizando orçamento ${budget.categoryName}: ${budget.spent} → ${newSpent}`);
+          
+          // Adicionar ao histórico
+          const historyEntry = {
+            id: `${budget.id}_${Date.now()}`,
+            budgetId: budget.id,
+            categoryName: budget.categoryName,
+            oldSpent: budget.spent,
+            newSpent,
+            change: newSpent - budget.spent,
+            updatedAt: new Date().toISOString()
+          };
+          
+          setBudgetHistory(prev => [...prev, historyEntry]);
+          
+          // Verificar se precisa enviar notificação
+          const percentage = (newSpent / budget.limit) * 100;
+          if (percentage >= 80) {
+            sendBudgetAlert(budget.categoryName, percentage);
+          }
+          
           return { ...budget, spent: newSpent };
         }
       }
@@ -275,33 +466,22 @@ export const BudgetProvider = ({ children }) => {
     );
     
     if (hasChanges) {
-      console.log('💾 Salvando orçamentos atualizados...');
       setBudgets(updatedBudgets);
-      await saveBudgetData(updatedBudgets);
+      // Não sobrescrever metas ao recalcular gastos
+      await saveBudgetData(updatedBudgets, monthlyGoals);
     }
   };
 
   const updateBudget = async (oldBudgetId, categoryId, categoryName, limit, type = 'expense') => {
-    console.log('🔄 updateBudget chamado:', {
-      oldBudgetId,
-      categoryId,
-      categoryName,
-      limit,
-      type
-    });
 
     const currentDate = new Date();
     const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
     const newBudgetId = `${categoryId}_${monthKey}`;
     
-    console.log('🆔 IDs:', { oldBudgetId, newBudgetId, willDelete: oldBudgetId !== newBudgetId });
-    
     // Preservar dados do orçamento antigo antes de deletar
     const oldBudget = budgets.find(b => b.id === oldBudgetId);
     const spentToPreserve = oldBudget ? oldBudget.spent : 0;
     const createdAtToPreserve = oldBudget ? oldBudget.createdAt : new Date().toISOString();
-    
-    console.log('💾 Dados a preservar:', { spentToPreserve, createdAtToPreserve });
     
     // Remover o orçamento antigo e criar/atualizar em uma única operação
     const updatedBudgets = budgets.filter(b => b.id !== oldBudgetId && b.id !== newBudgetId);
@@ -320,16 +500,16 @@ export const BudgetProvider = ({ children }) => {
     
     updatedBudgets.push(budgetData);
     
-    console.log('📊 Total de orçamentos após operação:', updatedBudgets.length);
-    console.log('✅ Orçamento atualizado:', budgetData);
-    
     setBudgets(updatedBudgets);
-    await saveBudgetData(updatedBudgets);
+    // Não sobrescrever metas ao atualizar orçamento
+    await saveBudgetData(updatedBudgets, monthlyGoals);
   };
 
   const value = {
     budgets,
     monthlyGoals,
+    budgetHistory,
+    goalAchievements,
     isLoading,
     setBudgetForCategory,
     updateBudget,
@@ -341,6 +521,12 @@ export const BudgetProvider = ({ children }) => {
     getMonthlyGoal,
     getCurrentMonthGoals,
     deleteBudget,
+    copyPreviousMonthGoals,
+    getGoalsHistory,
+    getGoalsStats,
+    clearCurrentMonthGoals,
+    clearAllData,
+    getCurrentMonthStats,
   };
 
   return (

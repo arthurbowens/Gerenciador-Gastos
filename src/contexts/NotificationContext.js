@@ -236,16 +236,48 @@ export const NotificationProvider = ({ children }) => {
     return await Notifications.getAllScheduledNotificationsAsync();
   };
 
+  const clearAllScheduledNotifications = async () => {
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      console.log('✅ Todas as notificações agendadas foram canceladas');
+    } catch (error) {
+      console.error('Erro ao cancelar notificações:', error);
+    }
+  };
+
+  const clearAllData = async () => {
+    try {
+      // Cancelar todas as notificações agendadas
+      await clearAllScheduledNotifications();
+      
+      // Resetar configurações para padrão
+      const defaultSettings = {
+        enabled: false,
+        dailyReminder: false,
+        budgetAlerts: true,
+        weeklyReport: false,
+        recurringReminder: true,
+        reminderTime: '20:00',
+      };
+      
+      setNotificationSettings(defaultSettings);
+      await AsyncStorage.setItem('notificationSettings', JSON.stringify(defaultSettings));
+      
+      console.log('✅ Todas as configurações de notificação foram resetadas');
+      return true;
+    } catch (error) {
+      console.error('Erro ao limpar dados de notificação:', error);
+      return false;
+    }
+  };
+
   const value = {
     notificationSettings,
     permissionStatus,
     updateSetting,
     scheduleNotifications,
-    sendBudgetAlert,
-    sendRecurringReminder,
-    sendGoalAchievement,
-    testNotification,
-    getScheduledNotifications,
+    clearAllScheduledNotifications,
+    clearAllData,
   };
 
   return (

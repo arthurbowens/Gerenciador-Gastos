@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,20 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  Switch,
+  Modal,
 } from 'react-native';
-import { Card, Title, List, Switch, Divider, Button, Portal, Modal } from 'react-native-paper';
-import { Ionicons } from '@expo/vector-icons';
-import { useFinance } from '../contexts/FinanceContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useAccounts } from '../contexts/AccountsContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useNotifications } from '../contexts/NotificationContext';
+import { useAccounts } from '../contexts/AccountsContext';
+import { useFinance } from '../contexts/FinanceContext';
+import { useBudget } from '../contexts/BudgetContext';
+import DataCleaningService from '../services/DataCleaningService';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Card, Title, List, Divider, Button, Portal } from 'react-native-paper';
 import { APP_INFO } from '../constants/AppInfo';
 import AdsStatsCard from '../components/AdsStatsCard';
 import AdsSettingsCard from '../components/AdsSettingsCard';
@@ -59,35 +65,19 @@ export default function SettingsScreen({ navigation }) {
     );
   };
 
-  const handleClearData = () => {
-    Alert.alert(
-      'Limpar Todos os Dados',
-      'Tem certeza que deseja excluir TODAS as transações e categorias? Esta ação não pode ser desfeita.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Limpar Tudo', 
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Confirmação Final',
-              'Esta ação irá remover permanentemente todos os seus dados financeiros. Tem certeza absoluta?',
-              [
-                { text: 'Cancelar', style: 'cancel' },
-                { 
-                  text: 'SIM, LIMPAR TUDO', 
-                  style: 'destructive',
-                  onPress: () => {
-                    // Aqui você implementaria a limpeza dos dados
-                    Alert.alert('Dados Limpos', 'Todos os dados foram removidos com sucesso.');
-                  }
-                },
-              ]
-            );
-          }
-        },
-      ]
-    );
+  const handleClearData = async () => {
+    try {
+      const success = await DataCleaningService.clearDataWithConfirmation();
+      
+      if (success) {
+        // Recarregar dados após limpeza
+        // Os contextos devem recarregar automaticamente
+        console.log('✅ Dados limpos com sucesso');
+      }
+    } catch (error) {
+      console.error('Erro ao limpar dados:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao limpar os dados. Tente novamente.');
+    }
   };
 
   const handleContactSupport = () => {

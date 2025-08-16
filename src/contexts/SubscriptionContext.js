@@ -464,6 +464,39 @@ export const SubscriptionProvider = ({ children }) => {
     return isPremium ? -1 : 10; // -1 = ilimitado
   };
 
+  const clearPurchaseHistory = async () => {
+    try {
+      setPurchaseHistory([]);
+      await AsyncStorage.removeItem('purchase_history');
+      console.log('✅ Histórico de compras foi limpo');
+    } catch (error) {
+      console.error('Erro ao limpar histórico de compras:', error);
+    }
+  };
+
+  const clearAllData = async () => {
+    try {
+      // Limpar histórico de compras
+      await clearPurchaseHistory();
+      
+      // Resetar status de assinatura
+      setIsPremium(false);
+      setCurrentPlan(null);
+      
+      // Limpar dados salvos
+      await AsyncStorage.removeItem('subscription_status');
+      await AsyncStorage.removeItem('current_plan');
+      await AsyncStorage.removeItem('has_active_subscription');
+      await AsyncStorage.removeItem('subscription_expiry');
+      
+      console.log('✅ Todos os dados de assinatura foram limpos');
+      return true;
+    } catch (error) {
+      console.error('Erro ao limpar dados de assinatura:', error);
+      return false;
+    }
+  };
+
   const value = {
     // Estado
     isPremium,
@@ -481,6 +514,8 @@ export const SubscriptionProvider = ({ children }) => {
     isFeatureAvailable,
     getTransactionLimit,
     getCategoryLimit,
+    clearPurchaseHistory,
+    clearAllData,
     
     // Constantes
     SUBSCRIPTION_PLANS,

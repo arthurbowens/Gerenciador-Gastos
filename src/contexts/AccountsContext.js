@@ -177,22 +177,38 @@ export const AccountsProvider = ({ children }) => {
   };
 
   const deleteAccount = async (accountId) => {
-    const accountToDelete = accounts.find(acc => acc.id === accountId);
-    if (accountToDelete?.isDefault) {
-      throw new Error(t('accounts.cannotDeleteDefault'));
+    if (accounts.length <= 1) {
+      return false; // Não permitir deletar a última conta
     }
 
     const updatedAccounts = accounts.filter(acc => acc.id !== accountId);
     setAccounts(updatedAccounts);
-    await AsyncStorage.setItem('accounts', JSON.stringify(updatedAccounts));
     
-    // Se a conta excluída era a atual, selecionar outra
-    if (currentAccount?.id === accountId) {
-      const newCurrent = updatedAccounts[0] || null;
-      setCurrentAccount(newCurrent);
-      if (newCurrent) {
-        await AsyncStorage.setItem('currentAccount', JSON.stringify(newCurrent.id));
-      }
+    // Se a conta deletada era a atual, definir a primeira como atual
+    if (currentAccount && currentAccount.id === accountId) {
+      const newCurrentAccount = updatedAccounts[0];
+      setCurrentAccount(newCurrentAccount);
+      await AsyncStorage.setItem('currentAccount', JSON.stringify(newCurrentAccount.id));
+    }
+    
+    try {
+      await AsyncStorage.setItem('accounts', JSON.stringify(updatedAccounts));
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar conta:', error);
+      return false;
+    }
+  };
+
+  const clearAllData = async () => {
+    try {
+      // Recriar contas padrão
+      await createDefaultAccounts();
+      console.log('✅ Todas as contas foram limpas e resetadas para padrão');
+      return true;
+    } catch (error) {
+      console.error('Erro ao limpar contas:', error);
+      return false;
     }
   };
 
@@ -282,6 +298,7 @@ export const AccountsProvider = ({ children }) => {
     getAccountsByType,
     getTotalBalance,
     refreshAccountNames: () => updateDefaultAccountNames(),
+    clearAllData,
   };
 
   return (

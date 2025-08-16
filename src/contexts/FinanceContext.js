@@ -228,6 +228,30 @@ export const FinanceProvider = ({ children }) => {
     };
   };
 
+  const clearAllData = async () => {
+    try {
+      // Limpar transações
+      setTransactions([]);
+      await AsyncStorage.removeItem('transactions');
+      
+      // Limpar categorias (manter apenas as padrão)
+      const defaultCategories = getDefaultCategories();
+      setCategories(defaultCategories);
+      await AsyncStorage.setItem('categories', JSON.stringify(defaultCategories));
+      
+      // Resetar balanços
+      setBalance(0);
+      setIncome(0);
+      setExpenses(0);
+      
+      console.log('✅ Todos os dados financeiros foram limpos');
+      return true;
+    } catch (error) {
+      console.error('Erro ao limpar dados:', error);
+      return false;
+    }
+  };
+
   const value = {
     transactions,
     categories,
@@ -242,6 +266,7 @@ export const FinanceProvider = ({ children }) => {
     getTransactionsByCategory,
     getTransactionsByMonth,
     getMonthlyStats,
+    clearAllData,
   };
 
   return (
