@@ -1,21 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useTheme } from '../contexts/ThemeContext';
-import { useLanguage } from '../contexts/LanguageContext';
 
 export default function LoadingScreen({ message = null }) {
-  const { theme } = useTheme();
-  const { t } = useLanguage();
-
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={styles.container}>
       <ActivityIndicator 
         size="large" 
-        color={theme.colors.primary}
+        color="#1E3A8A"
         style={styles.spinner}
       />
-      <Text style={[styles.message, { color: theme.colors.text }]}>
-        {message || t('common.loading')}
+      <Text style={styles.message}>
+        {message || 'Carregando...'}
       </Text>
     </View>
   );
@@ -27,6 +22,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: '#FFFFFF',
   },
   spinner: {
     marginBottom: 16,
@@ -35,5 +31,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     opacity: 0.7,
+    color: '#374151',
   },
 });

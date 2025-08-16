@@ -144,7 +144,7 @@ export default function ExportScreen() {
         <List.Item
           title={t('export.exportTransactions')}
           description={t('export.exportTransactionsDesc')}
-          left={(props) => <List.Icon {...props} icon="download" color={theme.colors.primary} />}
+          left={(props) => <List.Icon {...props} icon="download-outline" color={theme.colors.primary} />}
           right={() => (
             <View style={styles.buttonGroup}>
               <Button
@@ -175,7 +175,7 @@ export default function ExportScreen() {
         <List.Item
           title={t('export.exportBudgets')}
           description={t('export.exportBudgetsDesc')}
-          left={(props) => <List.Icon {...props} icon="wallet" color={theme.colors.primary} />}
+          left={(props) => <List.Icon {...props} icon="card" color={theme.colors.primary} />}
           right={() => (
             <Button
               mode="contained"
@@ -204,7 +204,7 @@ export default function ExportScreen() {
         <List.Item
           title={t('export.completeBackup')}
           description={t('export.completeBackupDesc')}
-          left={(props) => <List.Icon {...props} icon="cloud-upload" color={theme.colors.primary} />}
+          left={(props) => <List.Icon {...props} icon="cloud-upload-outline" color={theme.colors.primary} />}
           right={() => (
             <Button
               mode="contained"
@@ -224,7 +224,7 @@ export default function ExportScreen() {
         <List.Item
           title={t('export.importData')}
           description={t('export.importDataDesc')}
-          left={(props) => <List.Icon {...props} icon="cloud-download" color={theme.colors.primary} />}
+          left={(props) => <List.Icon {...props} icon="cloud-download-outline" color={theme.colors.primary} />}
           right={() => (
             <Button
               mode="outlined"
@@ -252,7 +252,7 @@ export default function ExportScreen() {
         <List.Item
           title={t('export.generateReport')}
           description={t('export.generateReportDesc')}
-          left={(props) => <List.Icon {...props} icon="file-document" color={theme.colors.primary} />}
+          left={(props) => <List.Icon {...props} icon="file-document-outline" color={theme.colors.primary} />}
           right={() => (
             <Button
               mode="contained"

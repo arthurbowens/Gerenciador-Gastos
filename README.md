@@ -33,11 +33,13 @@ Um aplicativo completo de controle financeiro desenvolvido em React Native/Expo,
 - **Plano Anual**: R$ 199,90/ano (17% desconto)
 - **Plano Vitalício**: R$ 299,90 (uma vez)
 
-### 2. Anúncios
-- Banner ads estratégicos
-- Anúncios intersticiais
-- Anúncios recompensados
-- Receita estimada: R$ 375/mês no primeiro ano
+### 2. Sistema de Anúncios (Google AdMob)
+- **Banners**: Anúncios não intrusivos no rodapé das telas
+- **Intersticiais**: Anúncios de tela cheia em transições (frequência controlada)
+- **Recompensados**: Usuários ganham moedas/premium assistindo anúncios
+- **Configuração inteligente**: Frequência e posicionamento otimizados para UX
+- **Segmentação**: Anúncios relevantes para finanças e economia
+- **Receita estimada**: R$ 375/mês no primeiro ano
 
 ### 3. Parcerias e Afiliados
 - Bancos digitais (R$ 15-25 por conta)
@@ -70,7 +72,33 @@ Um aplicativo completo de controle financeiro desenvolvido em React Native/Expo,
 - **Notificações**: Expo Notifications
 - **Backup**: Google Drive API + Dropbox API
 - **Pagamentos**: Google Play Billing + Apple In-App Purchases
-- **Anúncios**: Google AdMob
+- **Anúncios**: Google AdMob (Banner, Intersticial, Recompensado)
+- **Sistema de Recompensas**: Anúncios recompensados com moedas virtuais
+
+## 📱 **Sistema de Anúncios (Google AdMob)**
+
+### Tipos de Anúncios Implementados
+- **Banners**: Anúncios não intrusivos no rodapé das telas principais
+- **Intersticiais**: Anúncios de tela cheia em transições (máximo 1 por minuto)
+- **Recompensados**: Usuários ganham moedas virtuais e tempo premium
+
+### Configuração Inteligente
+- **Frequência controlada**: Evita spam e melhora experiência do usuário
+- **Segmentação relevante**: Anúncios de finanças, economia e investimentos
+- **Respeito ao usuário**: Limites diários e por sessão configuráveis
+- **Fallbacks**: Sistema robusto com tratamento de erros
+
+### Monetização Otimizada
+- **eCPM estimado**: R$ 2,50 - R$ 5,00 (Brasil)
+- **Fill Rate**: 95%+ com anúncios de qualidade
+- **CTR**: 1-3% com posicionamento estratégico
+- **Receita mensal estimada**: R$ 375 - R$ 750 (primeiro ano)
+
+### Configuração
+1. **Siga o guia**: `ADMOB_SETUP.md`
+2. **Substitua IDs**: Use seus IDs reais do AdMob
+3. **Teste**: Use IDs de teste em desenvolvimento
+4. **Monitore**: Acompanhe métricas no console AdMob
 
 ## 🚀 Instalação e Configuração
 

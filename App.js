@@ -13,6 +13,8 @@ import { AnalyticsProvider } from './src/contexts/AnalyticsContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { LanguageProvider, useLanguage } from './src/contexts/LanguageContext';
 import { CurrencyProvider } from './src/contexts/CurrencyContext';
+import { SubscriptionProvider } from './src/contexts/SubscriptionContext';
+import { AdsProvider } from './src/contexts/AdsContext';
 import { StatusBar } from 'expo-status-bar';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import LoadingScreen from './src/components/LoadingScreen';
@@ -30,6 +32,7 @@ import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import ThemeCustomizationScreen from './src/screens/ThemeCustomizationScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import AddTransactionScreen from './src/screens/AddTransactionScreen';
+import PremiumScreen from './src/screens/PremiumScreen';
 
 // Icons
 import { Ionicons } from '@expo/vector-icons';
@@ -95,7 +98,7 @@ function AppContent() {
 
   // Mostrar loading enquanto contextos carregam
   if (themeLoading || languageLoading) {
-    return <LoadingScreen />;
+    return <LoadingScreen message="Carregando configurações..." />;
   }
   
   const paperTheme = {
@@ -203,6 +206,15 @@ function AppContent() {
                 headerTintColor: theme.colors.background
               }}
             />
+            <Stack.Screen 
+              name="Premium" 
+              component={PremiumScreen} 
+              options={{ 
+                title: 'Premium',
+                headerStyle: { backgroundColor: theme.colors.primary },
+                headerTintColor: theme.colors.background
+              }}
+            />
           </Stack.Navigator>
         </NavigationContainer>
                   </AnalyticsProvider>
@@ -222,7 +234,11 @@ export default function App() {
       <LanguageProvider>
         <ThemeProvider>
           <CurrencyProvider>
-            <AppContent />
+            <SubscriptionProvider>
+              <AdsProvider>
+                <AppContent />
+              </AdsProvider>
+            </SubscriptionProvider>
           </CurrencyProvider>
         </ThemeProvider>
       </LanguageProvider>

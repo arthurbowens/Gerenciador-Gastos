@@ -1,15 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Provider as PaperProvider } from 'react-native-paper';
 
 export default function App() {
   return (
-    <PaperProvider>
-      <View style={styles.container}>
-        <Text style={styles.title}>Controle Finanças</Text>
-        <Text style={styles.subtitle}>App funcionando! 🎉</Text>
-      </View>
-    </PaperProvider>
+    <View style={styles.container}>
+      <Text style={styles.title}>Controle Finanças</Text>
+      <Text style={styles.subtitle}>Teste simples</Text>
+    </View>
   );
 }
 
@@ -18,12 +15,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#000',
     marginBottom: 16,
   },
   subtitle: {

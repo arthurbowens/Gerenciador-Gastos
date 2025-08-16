@@ -16,6 +16,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAccounts } from '../contexts/AccountsContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { APP_INFO } from '../constants/AppInfo';
+import AdsStatsCard from '../components/AdsStatsCard';
+import AdsSettingsCard from '../components/AdsSettingsCard';
+import AdsTestPanel from '../components/AdsTestPanel';
+
 
 export default function SettingsScreen({ navigation }) {
   const { transactions, categories } = useFinance();
@@ -182,7 +186,7 @@ export default function SettingsScreen({ navigation }) {
           <Title style={styles.statsTitle}>{t('settings.appStats')}</Title>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
-              <Ionicons name="receipt" size={24} color="#1E3A8A" />
+              <Ionicons name="list" size={24} color="#1E3A8A" />
               <Text style={styles.statValue}>{stats.totalTransactions}</Text>
               <Text style={styles.statLabel}>{t('settings.totalTransactions')}</Text>
             </View>
@@ -192,7 +196,7 @@ export default function SettingsScreen({ navigation }) {
               <Text style={styles.statLabel}>{t('settings.totalCategories')}</Text>
             </View>
             <View style={styles.statItem}>
-              <Ionicons name="trending-up" size={24} color="#10B981" />
+              <Ionicons name="arrow-up-circle" size={24} color="#10B981" />
               <Text style={styles.statValue}>
                 {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
@@ -202,7 +206,7 @@ export default function SettingsScreen({ navigation }) {
               <Text style={styles.statLabel}>{t('settings.totalIncome')}</Text>
             </View>
             <View style={styles.statItem}>
-              <Ionicons name="trending-down" size={24} color="#EF4444" />
+              <Ionicons name="arrow-down-circle" size={24} color="#EF4444" />
               <Text style={styles.statValue}>
                 {new Intl.NumberFormat('pt-BR', {
                   style: 'currency',
@@ -214,6 +218,15 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </Card.Content>
       </Card>
+
+      {/* Estatísticas de Anúncios */}
+      <AdsStatsCard />
+
+      {/* Configurações de Anúncios */}
+      <AdsSettingsCard />
+
+      {/* Painel de Teste (Apenas Desenvolvimento) */}
+      <AdsTestPanel />
 
       {/* Configurações do App */}
       <Card style={styles.card}>
@@ -238,7 +251,7 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title="Modo Escuro"
             description={t('settings.darkModeDesc')}
-            left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
+            left={(props) => <List.Icon {...props} icon="moon-waning-crescent" />}
             right={() => (
               <Switch
                 value={isDarkMode}
@@ -262,14 +275,14 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title={t('settings.currency')}
             description={`${getCurrentCurrency().flag} ${getCurrentCurrency().code} - ${getCurrentCurrency().name}`}
-            left={(props) => <List.Icon {...props} icon="currency-usd" />}
+            left={(props) => <List.Icon {...props} icon="cash" />}
             onPress={() => setCurrencyModalVisible(true)}
           />
           
           <List.Item
             title={t('themes.customization')}
             description={t('themes.customizationDesc')}
-            left={(props) => <List.Icon {...props} icon="palette" />}
+            left={(props) => <List.Icon {...props} icon="palette-outline" />}
             onPress={() => navigation.navigate('ThemeCustomization')}
           />
           
@@ -278,7 +291,7 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title={t('settings.autoBackup')}
             description={t('settings.autoBackupDesc')}
-            left={(props) => <List.Icon {...props} icon="cloud-upload" />}
+            left={(props) => <List.Icon {...props} icon="cloud-upload-outline" />}
             right={() => (
               <Switch
                 value={autoBackupEnabled}
@@ -298,7 +311,7 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title={t('settings.exportData')}
             description="Salvar dados em arquivo CSV"
-            left={(props) => <List.Icon {...props} icon="download" />}
+            left={(props) => <List.Icon {...props} icon="download-outline" />}
             onPress={handleExportData}
           />
           
@@ -307,7 +320,7 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title={t('settings.importData')}
             description="Carregar dados de outros apps"
-            left={(props) => <List.Icon {...props} icon="upload" />}
+            left={(props) => <List.Icon {...props} icon="upload-outline" />}
             onPress={handleImportData}
           />
           
@@ -316,7 +329,7 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title={t('settings.backupData')}
             description="Fazer backup na nuvem"
-            left={(props) => <List.Icon {...props} icon="cloud" />}
+            left={(props) => <List.Icon {...props} icon="cloud-outline" />}
             onPress={handleBackupData}
           />
           
@@ -325,7 +338,7 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title={t('settings.clearData')}
             description="Remover todas as transações e categorias"
-            left={(props) => <List.Icon {...props} icon="delete" color="#EF4444" />}
+            left={(props) => <List.Icon {...props} icon="delete-outline" color="#EF4444" />}
             onPress={handleClearData}
             titleStyle={{ color: '#EF4444' }}
           />
@@ -340,7 +353,7 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title={t('settings.contactSupport')}
             description={t('settings.contactSupportDesc')}
-            left={(props) => <List.Icon {...props} icon="help-circle" />}
+            left={(props) => <List.Icon {...props} icon="help-circle-outline" />}
             onPress={handleContactSupport}
           />
           
@@ -367,7 +380,7 @@ export default function SettingsScreen({ navigation }) {
           <List.Item
             title={t('settings.termsOfService')}
             description={t('settings.termsOfServiceDesc')}
-            left={(props) => <List.Icon {...props} icon="file-document" />}
+            left={(props) => <List.Icon {...props} icon="file-document-outline" />}
             onPress={handleTermsOfService}
           />
         </Card.Content>

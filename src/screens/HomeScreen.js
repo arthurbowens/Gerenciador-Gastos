@@ -14,10 +14,12 @@ import { useFinance } from '../contexts/FinanceContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import HeaderCard from '../components/HeaderCard';
 import EmptyState from '../components/EmptyState';
 import { ExpensesPieChart, MiniPieChart } from '../components/Charts';
+import AdBanner from '../components/AdBanner';
 
 const { width } = Dimensions.get('window');
 
@@ -26,6 +28,7 @@ export default function HomeScreen({ navigation }) {
   const { t } = useLanguage();
   const { theme } = useTheme();
   const { formatCurrency } = useCurrency();
+  const { isPremium, currentPlan } = useSubscription();
   const [selectedPeriod, setSelectedPeriod] = useState('month');
 
   const currentDate = new Date();
@@ -78,7 +81,7 @@ export default function HomeScreen({ navigation }) {
       [t('defaultCategories.entertainment')]: 'game-controller',
       [t('defaultCategories.salary')]: 'cash',
       [t('defaultCategories.freelance')]: 'briefcase',
-      [t('defaultCategories.investments')]: 'trending-up',
+              [t('defaultCategories.investments')]: 'arrow-up-circle',
     };
     return categoryMap[categoryName] || 'help-circle';
   };
@@ -102,29 +105,26 @@ export default function HomeScreen({ navigation }) {
   return (
     <ScrollView style={styles.container}>
       {/* Premium Banner */}
-      <TouchableOpacity style={styles.premiumBanner} onPress={() => {
-        Alert.alert(
-          t('premium.title'),
-          t('premium.description'),
-          [
-            { text: t('premium.cancel'), style: 'cancel' },
-            { text: t('premium.subscribe'), onPress: () => console.log('Implementar assinatura') }
-          ]
-        );
-      }}>
-        <LinearGradient
-          colors={['#FFD700', '#FFA500']}
-          style={styles.premiumGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+      {!isPremium && (
+        <TouchableOpacity 
+          style={styles.premiumBanner} 
+          onPress={() => navigation.navigate('Premium')}
+          activeOpacity={0.8}
         >
-          <View style={styles.premiumContent}>
-            <Ionicons name="diamond" size={20} color="#FFFFFF" />
-            <Text style={styles.premiumText}>{t('premium.upgradeToPremium')}</Text>
-            <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={['#FFD700', '#FFA500']}
+            style={styles.premiumGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <View style={styles.premiumContent}>
+              <Ionicons name="star" size={20} color="#FFFFFF" />
+              <Text style={styles.premiumText}>{t('premium.upgradeToPremium')}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
 
       {/* Header com saldo */}
       <LinearGradient
@@ -280,17 +280,20 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.quickActionText}>{t('export.title')}</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity
-          style={styles.quickActionButton}
-          onPress={() => navigation.navigate('Settings')}
-        >
-          <Ionicons name="settings" size={24} color="#1E3A8A" />
-          <Text style={styles.quickActionText}>{t('navigation.settings')}</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-}
+                 <TouchableOpacity
+           style={styles.quickActionButton}
+           onPress={() => navigation.navigate('Settings')}
+         >
+           <Ionicons name="settings" size={24} color="#1E3A8A" />
+           <Text style={styles.quickActionText}>{t('navigation.settings')}</Text>
+         </TouchableOpacity>
+       </View>
+
+       {/* Banner de anúncios */}
+       <AdBanner size="BANNER" position="bottom" />
+     </ScrollView>
+   );
+ }
 
 const styles = StyleSheet.create({
   container: {
